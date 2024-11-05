@@ -48,8 +48,16 @@ class ClearCells(nn.Module):
 class NeuralAlgorithm(nn.Module):
     def __init__(self, args: EnviromentArguments, activation: nn.Module):
         super().__init__()
+        # activation should take 9 * args.channels inputs and output args.channels
+        with torch.no_grad():
+            test_input = torch.zeros((1, args.height, args.width, 9 * args.channels))
+            try:
+                test_output = activation(test_input)
+            except Exception as e:
+                print(f"Activation function failed on sample testcase(may be due to dimension errors) with error: {e}")
+                raise
         self.args = args
-        self.activation = activation  # activation should take 9 * args.channels inputs and output args.channels
+        self.activation = activation  
         kernel = torch.ones((1, 1, 3, 3))
         self.register_buffer('neighbour_kernel', kernel)
 
