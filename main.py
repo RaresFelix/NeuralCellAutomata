@@ -50,8 +50,16 @@ class NeuralAlgorithm(nn.Module):
         super().__init__()
         self.args = args
         self.activation = activation  # activation should take 9 * args.channels inputs and output args.channels
+        kernel = torch.ones((1, 1, 3, 3))
+        self.register_buffer('neighbour_kernel', kernel)
 
     def forward(self, x: Float[Tensor, 'batch width height channels']) -> Float[Tensor, 'batch width height channels']:
+        alive_cells = x[..., 3] > self.args.alive_threshold
+        alive_cells = alive_cells.unsqueeze(1) # batch 1 width height
+        alive_cells = alive_cells.float()
+        neighbour_sum = F.conv2d(alive_cells, self.neighbour_kernel, padding=1).squeeze(1) # batch width height
+        cleared_cells = neighbour_sum == 0
+
         padded_x = F.pad(x, (0, 0, 1, 1, 1, 1, 0, 0))  # (pad_left, pad_right, pad_top, pad_bottom)
         
         # Extract 3x3 neighborhoods
@@ -59,7 +67,6 @@ class NeuralAlgorithm(nn.Module):
             padded_x[:, i:i+self.args.height, j:j+self.args.width, :]
             for i in range(3) for j in range(3)
         ], dim=-1)  # Concatenate along the channel dimension
-
 
         print(neighbors.shape)
         
@@ -69,4 +76,5 @@ class NeuralAlgorithm(nn.Module):
         # Reshape back to original tensor shape
         updated_state = updated_state.view(x.shape)
 
+        updated_state[cleared_cells, :] = 0
         return updated_state
