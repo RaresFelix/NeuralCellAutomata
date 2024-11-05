@@ -1,5 +1,6 @@
 import torch
 from torch import Tensor
+import numpy as np
 import torch.nn as nn
 import torch.nn.functional as F
 import plotly.express as px
@@ -86,3 +87,34 @@ class NeuralAlgorithm(nn.Module):
 
         updated_state[cleared_cells, :] = 0
         return updated_state
+
+def render_grid(grid: Float[Tensor, 'width height channels'], title: str = 'Grid Visualization'):
+    grid = grid[..., :4]  # Only keep RGB alpha channels
+    if grid.shape[-1] < 4:
+        raise ValueError("Grid must have at least 4 channels (RGB + Alpha).")
+    
+    rgb = grid[..., :3].cpu().numpy()
+    alpha = grid[..., 3].cpu().numpy()
+
+    rgb = einops.rearrange(rgb, 'w h c -> h w c')
+    alpha = einops.rearrange(alpha, 'w h -> h w')
+
+    background = np.ones_like(rgb)  # White background
+    alpha_expanded = np.expand_dims(alpha, axis=-1)  # Shape: (height, width, 1)
+    blended = rgb * alpha_expanded + background * (1 - alpha_expanded)
+
+    # Ensure the values are within [0, 1]
+    blended = np.clip(blended, 0, 1)
+
+    fig = px.imshow(blended, 
+                    title=title,
+                    labels=dict(x='Width', y='Height'),
+                    aspect='equal')
+    
+    fig.update_layout(
+        xaxis=dict(scaleanchor="y", scaleratio=1),
+        yaxis=dict(scaleanchor="x", scaleratio=1),
+        margin=dict(l=0, r=0, t=30, b=0)
+    )
+
+    fig.show()
