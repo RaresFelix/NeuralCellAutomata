@@ -24,7 +24,9 @@ class EnviromentArguments: # data that describes the "petri dish" that the cells
 
 
 class ClearCells(nn.Module):
-    # Will clear values in all cells that don't have any living neighbour (and are dead themselves)
+    """
+        Will clear values in all cells that don't have any living neighbour in a 3 x 3 (and are dead themselves)
+    """
     def __init__(self, args: EnviromentArguments):
         super().__init__()
         self.args = args
@@ -42,5 +44,29 @@ class ClearCells(nn.Module):
 
         return x
 
+@jaxtyped(typechecker=typechecker)
+class NeuralAlgorithm(nn.Module):
+    def __init__(self, args: EnviromentArguments, activation: nn.Module):
+        super().__init__()
+        self.args = args
+        self.activation = activation  # activation should take 9 * args.channels inputs and output args.channels
+
+    def forward(self, x: Float[Tensor, 'batch width height channels']) -> Float[Tensor, 'batch width height channels']:
+        padded_x = F.pad(x, (0, 0, 1, 1, 1, 1, 0, 0))  # (pad_left, pad_right, pad_top, pad_bottom)
+        
+        # Extract 3x3 neighborhoods
+        neighbors = torch.cat([
+            padded_x[:, i:i+self.args.height, j:j+self.args.width, :]
+            for i in range(3) for j in range(3)
+        ], dim=-1)  # Concatenate along the channel dimension
 
 
+        print(neighbors.shape)
+        
+        # Apply activation
+        updated_state = self.activation(neighbors)
+        
+        # Reshape back to original tensor shape
+        updated_state = updated_state.view(x.shape)
+
+        return updated_state
